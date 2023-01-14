@@ -13,8 +13,8 @@ jobs:
       run: terraform --version
     - name: Add AWS credentials for Terraform to use
       run: |
-        aws configure set aws_access_key_id ${{ secrets.YOUR_ACCESS_KEY }} --profile sam-user
-        aws configure set aws_secret_access_key ${{ secrets.YOUR_SECRET_ACCESS_KEY }} --profile sam-user
+        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile sam-user
+        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile sam-user
       
     - name: Terraform init
       env:
