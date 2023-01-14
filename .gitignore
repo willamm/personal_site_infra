@@ -1,5 +1,9 @@
 .env
 .terraform.lock.hcl
-.terraform/
-terraform.tfstate.backup
-terraform.tfstate
+**/.terraform/*
+*.tfstate.*
+*.tfstate
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
