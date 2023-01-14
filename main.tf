@@ -1,4 +1,12 @@
 terraform {
+  backend "s3" {
+    bucket = "tfstate-williamm"
+    key = "tf/terraform.tfstate"
+    dynamodb_table = "app-state"
+    region = "us-east-1"
+    profile = "sam-user"
+  }
+  
   required_providers {
     aws = {
       source  = "hashicorp/aws"
