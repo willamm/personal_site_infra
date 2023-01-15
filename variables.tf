@@ -13,3 +13,41 @@ variable "site_domain" {
   type        = string
   description = "The domain name to use for the static site"
 }
+
+variable "aws_s3_bucket_prefix" {
+  description = "S3 bucket prefix"
+  type = string
+  default = "apigw-lambda-ddb"
+}
+
+variable "dynamodb_table" {
+  description = "Name of the DynamoDB table"
+  type = string
+  default = "count-table"
+}
+
+variable "lambda_name" {
+  description = "Name of the Lambda function"
+  type = string
+  default = "lambda-function"
+  
+}
+
+variable "apigw_name" {
+  description = "name of the lambda function"
+  type = string
+  default = "apigw-http-lambda"
+  
+}
+
+variable "lambda_log_retention" {
+  description = "lambda log retention in days"
+  type = number
+  default = 7
+}
+
+variable "apigw_log_retention" {
+  description = "api gwy log retention in days"
+  type = number
+  default = 7
+}
