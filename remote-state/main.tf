@@ -1,7 +1,7 @@
 provider "aws" {
     region = "us-east-1"
     shared_credentials_files = ["$HOME/.aws/credentials"]
-    profile                  = "sam-user"
+   # profile                  = "sam-user"
 }
 
 resource "aws_s3_bucket" "terraform_state" {
