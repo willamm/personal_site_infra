@@ -141,3 +141,17 @@ resource "cloudflare_record" "domain_key" {
   value = "v=DKIM1; p="
   ttl = 1
 }
+
+# API stuff
+resource "aws_dynamodb_table" "visit-counter-table" {
+  name = "visit-counter-state"
+  read_capacity = 1
+  write_capacity = 1
+  hash_key = "CounterID"
+
+  attribute {
+    name = "CounterID"
+    type = "S"
+  }
+
+}
