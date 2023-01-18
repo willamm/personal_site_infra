@@ -41,6 +41,7 @@ resource "random_string" "random" {
 }
 resource "aws_s3_bucket" "static_site" {
   bucket = var.site_domain
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_website_configuration" "static_site" {
@@ -160,15 +161,15 @@ resource "cloudflare_record" "domain_key" {
 
 # Database setup
 resource "aws_dynamodb_table" "count_table" {
-  name = "visit-counter-state"
+  name = var.dynamodb_table
   billing_mode = "PROVISIONED"
   read_capacity = 20
   write_capacity = 20
-  hash_key = "counter"
+  hash_key = "stat"
 
   attribute {
-    name = "counter"
-    type = "N"
+    name = "stat"
+    type = "S"
   }
 
 }
@@ -250,31 +251,32 @@ resource "aws_iam_role" "lambda_exec" {
 resource "aws_iam_policy" "lambda_exec_role" {
   name = "lambda-tf-pattern-ddb-post"
 
-  policy = <<POLICY
-{
-    "Version": "2012-10-17",
-    "Statement": [
+  policy = jsonencode({
+
+    Version: "2012-10-17",
+    Statement: [
         {
-            "Effect": "Allow",
-            "Action": [
+            Effect: "Allow",
+            Action: [
                 "dynamodb:GetItem",
                 "dynamodb:PutItem",
-                "dynamodb:UpdateItem"
+                "dynamodb:UpdateItem",
+                "dynamodb:DescribeTable"
             ],
-            "Resource": "arn:aws:dynamodb:*:*:table/${var.dynamodb_table}"
+            Resource: "arn:aws:dynamodb:*:*:table/*"
         },
         {
-            "Effect": "Allow",
-            "Action": [
+            Effect: "Allow",
+            Action: [
                 "logs:CreateLogGroup",
                 "logs:CreateLogStream",
                 "logs:PutLogEvents"
             ],
-            "Resource": "*"
+            Resource: "*"
         }
     ]
-}
-POLICY
+})
+
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_policy" {
@@ -325,25 +327,17 @@ resource "aws_apigatewayv2_integration" "apigw_lambda" {
   integration_method = "POST"
 }
 
-resource "aws_apigatewayv2_integration" "apigw_lambda_get" {
-  api_id = aws_apigatewayv2_api.http_lambda.id
-  integration_uri = aws_lambda_function.apigw_lambda_ddb.invoke_arn
-  integration_type = "AWS_PROXY"
-  integration_method = "GET"
-  
-}
-
 resource "aws_apigatewayv2_route" "post" {
   api_id = aws_apigatewayv2_api.http_lambda.id
 
-  route_key = "POST /count"
+  route_key = "POST /incrementCount"
   target    = "integrations/${aws_apigatewayv2_integration.apigw_lambda.id}"
 }
 
-resource "aws_apigatewayv2_route" "get" {
+resource "aws_apigatewayv2_route" "post2" {
   api_id = aws_apigatewayv2_api.http_lambda.id
-  route_key = "GET /count" 
-  target = "integrations/${aws_apigatewayv2_integration.apigw_lambda_get.id}"
+  route_key = "POST /currentCount" 
+  target = "integrations/${aws_apigatewayv2_integration.apigw_lambda.id}"
 }
 
 resource "aws_cloudwatch_log_group" "api_gw" {

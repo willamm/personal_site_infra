@@ -14,7 +14,7 @@ variable "site_domain" {
   description = "The domain name to use for the static site"
 }
 
-variable "aws_s3_bucket_prefix" {
+variable "s3_bucket_prefix" {
   description = "S3 bucket prefix"
   type = string
   default = "apigw-lambda-ddb"
