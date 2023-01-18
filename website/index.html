@@ -7,16 +7,19 @@
 <body>
     <div id="header">
         <h1>Coming soon!</h1>
+        <p id="count"></p>
     </div>
-    <script>
-        const apiUrl = 
-        window.addEventListener("load", (event) => {
-            console.log("page is loaded");
-            // load current count from database using API Gateway
-            let counterElement = document.createElement('p');
-            counterElement.textContent = 
-            // Increment by 1
-            // store new count in database
-        })
+    <script type="text/javascript">
+        const apiUrl = "https://490k5hi20f.execute-api.us-east-1.amazonaws.com/count"
+        const options = {
+            method: "POST"
+        }
+        fetch(apiUrl, options)
+            .then(response => response.json())
+            .then(data => {
+                let count = document.getElementById('count');
+                count.innerHTML = data;
+                console.log(data);
+            })
     </script>
 </body>
