@@ -74,7 +74,12 @@ resource "aws_s3_bucket_policy" "static_site" {
         Resource = [
           aws_s3_bucket.static_site.arn,
           "${aws_s3_bucket.static_site.arn}/*",
-        ]
+        ],
+        Condition = {
+          IpAddress = {
+            "aws:sourceIp": data.cloudflare_ip_ranges.cloudflare.cidr_blocks
+          }
+        }
       },
     ]
   })
@@ -104,6 +109,8 @@ data "cloudflare_zones" "domain" {
   }
 }
 
+data "cloudflare_ip_ranges" "cloudflare" {}
+
 resource "cloudflare_record" "site_cname" {
   zone_id = data.cloudflare_zones.domain.zones[0].id 
   name = var.site_domain
@@ -122,6 +129,7 @@ resource "cloudflare_record" "www" {
   ttl = 1
   proxied = true
 }
+
 
 resource "cloudflare_page_rule" "https" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
@@ -319,9 +327,13 @@ resource "aws_apigatewayv2_stage" "default" {
   depends_on = [aws_cloudwatch_log_group.api_gw]
 }
 
+#########################
+# Custom domain for API #
+#########################
+
 resource "aws_apigatewayv2_integration" "apigw_lambda" {
   api_id = aws_apigatewayv2_api.http_lambda.id
-
+  
   integration_uri    = aws_lambda_function.apigw_lambda_ddb.invoke_arn
   integration_type   = "AWS_PROXY"
   integration_method = "POST"
