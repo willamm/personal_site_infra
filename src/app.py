@@ -4,27 +4,28 @@ import os
 import json
 import logging
 
+table_name = os.environ['DDB_TABLE']
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-dynamodb_client = boto3.client('dynamodb')
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(table_name)
 
 def lambda_handler(event, context):
-  table = os.environ.get('DDB_TABLE')
-   
-  http_method = event.get('httpMethod')
-  if http_method == 'POST':
-    if event['path'] == '/currentCount':
-    
-        response = dynamodb_client.describe_table(TableName=table)['Table']['ItemCount']
-        return {
-            'statusCode': 200,
-            'body': response
-        }
-    elif event['path'] == '/incrementCount':
-        response = dynamodb_client.put_item(TableName=table, Item={'stat': 'test'})
-        return {
-            'statusCode': 200,
-            'body': response
-        }
-
+    response = table.update_item(
+        Key={
+            'id': 'site'
+        },
+        UpdateExpression='ADD ' + 'visits' + ':incr',
+        ExpressionAttributeValues={
+            ':incr': 1
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+    count = response['Attributes']['visits']
+    # TODO: update HTTP headers
+    return {
+        'statusCode': 200,
+        'body': count
+    }    

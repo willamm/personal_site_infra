@@ -165,10 +165,10 @@ resource "aws_dynamodb_table" "count_table" {
   billing_mode = "PROVISIONED"
   read_capacity = 20
   write_capacity = 20
-  hash_key = "stat"
+  hash_key = "id"
 
   attribute {
-    name = "stat"
+    name = "id"
     type = "S"
   }
 
@@ -330,15 +330,15 @@ resource "aws_apigatewayv2_integration" "apigw_lambda" {
 resource "aws_apigatewayv2_route" "post" {
   api_id = aws_apigatewayv2_api.http_lambda.id
 
-  route_key = "POST /incrementCount"
+  route_key = "POST /count"
   target    = "integrations/${aws_apigatewayv2_integration.apigw_lambda.id}"
 }
 
-resource "aws_apigatewayv2_route" "post2" {
-  api_id = aws_apigatewayv2_api.http_lambda.id
-  route_key = "POST /currentCount" 
-  target = "integrations/${aws_apigatewayv2_integration.apigw_lambda.id}"
-}
+#resource "aws_apigatewayv2_route" "post2" {
+  #api_id = aws_apigatewayv2_api.http_lambda.id
+  #route_key = "POST /currentCount" 
+  #target = "integrations/${aws_apigatewayv2_integration.apigw_lambda.id}"
+#}
 
 resource "aws_cloudwatch_log_group" "api_gw" {
   name = "/aws/api_gw/${var.apigw_name}-${random_string.random.id}"
