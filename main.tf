@@ -299,6 +299,13 @@ resource "aws_iam_role_policy_attachment" "lambda_policy" {
 resource "aws_apigatewayv2_api" "http_lambda" {
   name          = "${var.apigw_name}-${random_string.random.id}"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = [ "https://${var.site_domain}" ]
+    allow_methods = ["POST"]
+    allow_headers = [ "content-type" ]
+    max_age = 300
+  }
 }
 
 resource "aws_apigatewayv2_stage" "default" {
