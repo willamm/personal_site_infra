@@ -14,7 +14,7 @@ terraform {
     }
     cloudflare = {
       source = "cloudflare/cloudflare"
-      version = "2.19.2"
+      version = "3.32.0"
     }
     random = {
       source = "hashicorp/random"
@@ -23,6 +23,10 @@ terraform {
     archive = {
       source = "hashicorp/archive"
       version = "2.2.0"
+    }
+    tls = {
+      source = "hashicorp/tls"
+      version = "4.0.4"
     }
   }
   required_version = "<= 1.3.7"
@@ -33,12 +37,15 @@ provider "aws" {
   shared_credentials_files = ["$HOME/.aws/credentials"]
   profile                  = "sam-user"
 }
-provider "cloudflare" {}
+
+provider "cloudflare" {
+}
 
 resource "random_string" "random" {
   length = 4
   special = false
 }
+
 resource "aws_s3_bucket" "static_site" {
   bucket = var.site_domain
   force_destroy = true
@@ -74,12 +81,7 @@ resource "aws_s3_bucket_policy" "static_site" {
         Resource = [
           aws_s3_bucket.static_site.arn,
           "${aws_s3_bucket.static_site.arn}/*",
-        ],
-        Condition = {
-          IpAddress = {
-            "aws:sourceIp": data.cloudflare_ip_ranges.cloudflare.cidr_blocks
-          }
-        }
+        ]
       },
     ]
   })
@@ -111,14 +113,70 @@ data "cloudflare_zones" "domain" {
 
 data "cloudflare_ip_ranges" "cloudflare" {}
 
+locals {
+  s3_origin_id = "test"
+}
+
+resource "aws_cloudfront_origin_access_control" "default" {
+  name = "default"
+  description = "CloudFront-S3 access control"
+  origin_access_control_origin_type = "s3"
+  signing_behavior = "always"
+  signing_protocol = "sigv4"
+}
+
+resource "aws_cloudfront_distribution" "s3_dist" {
+  origin {
+    domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.default.id
+    origin_id = local.s3_origin_id
+  }
+
+  enabled = true
+  is_ipv6_enabled = true
+  default_root_object = "index.html"
+
+  aliases = [ "*.${var.site_domain}", "${var.site_domain}" ]
+
+  default_cache_behavior {
+    allowed_methods = [ "HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH" ]
+    cached_methods = [ "GET", "HEAD" ]
+    target_origin_id = local.s3_origin_id
+
+    forwarded_values {
+      query_string = false
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "allow-all"
+    min_ttl = 0
+    default_ttl = 3600
+    max_ttl = 86400
+  }
+  
+  restrictions {
+    geo_restriction {
+      restriction_type = "whitelist"
+      locations = [ "US", "CA", "GB", "DE" ]
+    }
+  }
+  viewer_certificate {
+    acm_certificate_arn = aws_acm_certificate_validation.valid.certificate_arn
+    ssl_support_method = "sni-only"
+  }
+}
+
 resource "cloudflare_record" "site_cname" {
   zone_id = data.cloudflare_zones.domain.zones[0].id 
   name = var.site_domain
-  value = aws_s3_bucket_website_configuration.static_site.website_endpoint
+  value = aws_cloudfront_distribution.s3_dist.domain_name 
   type = "CNAME"
 
   ttl = 1
-  proxied = true
+  proxied = false
 }
 
 resource "cloudflare_record" "www" {
@@ -127,7 +185,7 @@ resource "cloudflare_record" "www" {
   value = var.site_domain
   type = "CNAME"
   ttl = 1
-  proxied = true
+  proxied = false
 }
 
 
@@ -334,10 +392,6 @@ resource "aws_apigatewayv2_stage" "default" {
   depends_on = [aws_cloudwatch_log_group.api_gw]
 }
 
-#########################
-# Custom domain for API #
-#########################
-
 resource "aws_apigatewayv2_integration" "apigw_lambda" {
   api_id = aws_apigatewayv2_api.http_lambda.id
   
@@ -353,12 +407,6 @@ resource "aws_apigatewayv2_route" "post" {
   target    = "integrations/${aws_apigatewayv2_integration.apigw_lambda.id}"
 }
 
-#resource "aws_apigatewayv2_route" "post2" {
-  #api_id = aws_apigatewayv2_api.http_lambda.id
-  #route_key = "POST /currentCount" 
-  #target = "integrations/${aws_apigatewayv2_integration.apigw_lambda.id}"
-#}
-
 resource "aws_cloudwatch_log_group" "api_gw" {
   name = "/aws/api_gw/${var.apigw_name}-${random_string.random.id}"
 
@@ -373,4 +421,84 @@ resource "aws_lambda_permission" "api_gw" {
 
   source_arn = "${aws_apigatewayv2_api.http_lambda.execution_arn}/*/*"
 }
-# API Gateway setup
+
+############################
+# Custom API domain set up #
+############################
+# TODO: Generate key outside of Terraform so that it's not saved in the Terraform state file 
+#resource "tls_private_key" "pk" {
+  #algorithm = "RSA"
+#}
+
+#resource "tls_cert_request" "req" {
+  #private_key_pem = tls_private_key.pk.private_key_pem
+
+  #subject {
+    #common_name = ""
+    #organization = "Terraform Test"
+  #}
+#}
+
+#resource "cloudflare_origin_ca_certificate" "api-cert" {
+  #csr = tls_cert_request.req.cert_request_pem
+  #hostnames = [ "*.${var.site_domain}", "${var.site_domain}" ]
+  #request_type = "origin-rsa"
+  #requested_validity = 365 # time in days
+#}
+
+# Import origin CA key to AWS ACM
+resource "aws_acm_certificate" "cert" {
+  domain_name = "${var.site_domain}"
+  validation_method = "DNS"
+  subject_alternative_names = [ "*.${var.site_domain}" ]
+
+  tags = {
+    Environment = "dev"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "cloudflare_record" "site" {
+  for_each = {
+    for dvo in aws_acm_certificate.cert.domain_validation_options : dvo.domain_name => {
+      name = dvo.resource_record_name
+      value = dvo.resource_record_value
+      type = dvo.resource_record_type
+    }
+    if length(regexall("\\*\\..+", dvo.domain_name)) > 0
+  }
+
+  allow_overwrite = true
+  name = each.value.name
+  value = each.value.value
+  ttl = 60
+  type = each.value.type
+  zone_id = data.cloudflare_zones.domain.zones[0].id
+
+  proxied = false
+}
+
+resource "aws_acm_certificate_validation" "valid" {
+  certificate_arn = aws_acm_certificate.cert.arn
+  validation_record_fqdns = [ for record in cloudflare_record.site : record.hostname ]
+  
+}
+# Create API Gateway custom domain
+resource "aws_apigatewayv2_domain_name" "api-domain" {
+  domain_name = "api.${var.site_domain}"
+  domain_name_configuration {
+    certificate_arn = aws_acm_certificate_validation.valid.certificate_arn
+    endpoint_type = "REGIONAL"
+    security_policy = "TLS_1_2"
+  }
+}
+
+# Associate domain name with the default API stage
+resource "aws_apigatewayv2_api_mapping" "api-mapping" {
+  api_id = aws_apigatewayv2_api.http_lambda.id
+  domain_name = aws_apigatewayv2_domain_name.api-domain.id
+  stage = aws_apigatewayv2_stage.default.id
+}

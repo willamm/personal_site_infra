@@ -23,4 +23,9 @@ output "apigw_log_group" {
   description = "Name of the Cloudwatch logs group for the lambda function"
   value = aws_cloudwatch_log_group.api_gw.id
 }
+
+output "cloudfront_domain_validation" {
+  description = "Set of domain validation outputs"
+  value = aws_acm_certificate.cert.domain_validation_options
+}
 # add domain output later
