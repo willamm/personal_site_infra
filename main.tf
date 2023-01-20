@@ -70,45 +70,6 @@ resource "aws_s3_bucket_acl" "static_site" {
 resource "aws_s3_bucket_policy" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   policy = data.aws_iam_policy_document.allow_access_only_from_cloudfront.json
-  #policy = jsonencode(
-    #{
-      #Version = "2012-10-17"
-      #Statement = [
-        #{
-          #Sid       = "1"
-          #Effect    = "Allow"
-          #Principal = {
-            #"AWS": "arn:aws:iam:cloudfront:user/"
-          #},
-          #Action    = "s3:GetObject"
-          #Resource = [
-            #aws_s3_bucket.static_site.arn,
-            #"${aws_s3_bucket.static_site.arn}/*",
-          #]
-        #},
-      #]
-    #}
-    #)
-}
-
-
-data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
-  statement {
-    sid = "AllowCloudFrontServicePrincipal"
-    effect = "Allow"
-    principals {
-      type = "Service"
-      identifiers = [ "cloudfront.amazonaws.com" ]    
-    }
-    actions = [ "s3:GetObject" ]
-    resources = [ "${aws_s3_bucket.static_site.arn}/*", "${aws_s3_bucket.static_site.arn}" ]
-    condition {
-      test = "StringEquals"
-      variable = "AWS:SourceArn"
-      values = [ "${aws_cloudfront_distribution.s3_dist.arn}" ]
-      
-    }
-  }
 }
 
 
