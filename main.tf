@@ -51,6 +51,12 @@ resource "aws_s3_bucket" "static_site" {
   force_destroy = true
 }
 
+resource "aws_s3_object" "index" {
+  bucket = aws_s3_bucket.static_site.id
+  key = "index"
+  source = "website/${local.s3_index_document}" 
+}
+
 resource "aws_s3_bucket_website_configuration" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   index_document {
