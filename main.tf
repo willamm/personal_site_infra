@@ -364,6 +364,8 @@ resource "aws_apigatewayv2_api" "http_lambda" {
     allow_headers = [ "content-type" ]
     max_age = 300
   }
+
+  disable_execute_api_endpoint = true
 }
 
 resource "aws_apigatewayv2_stage" "default" {
@@ -425,28 +427,6 @@ resource "aws_lambda_permission" "api_gw" {
 ############################
 # Custom API domain set up #
 ############################
-# TODO: Generate key outside of Terraform so that it's not saved in the Terraform state file 
-#resource "tls_private_key" "pk" {
-  #algorithm = "RSA"
-#}
-
-#resource "tls_cert_request" "req" {
-  #private_key_pem = tls_private_key.pk.private_key_pem
-
-  #subject {
-    #common_name = ""
-    #organization = "Terraform Test"
-  #}
-#}
-
-#resource "cloudflare_origin_ca_certificate" "api-cert" {
-  #csr = tls_cert_request.req.cert_request_pem
-  #hostnames = [ "*.${var.site_domain}", "${var.site_domain}" ]
-  #request_type = "origin-rsa"
-  #requested_validity = 365 # time in days
-#}
-
-# Import origin CA key to AWS ACM
 resource "aws_acm_certificate" "cert" {
   domain_name = "${var.site_domain}"
   validation_method = "DNS"
@@ -510,7 +490,6 @@ resource "cloudflare_record" "api" {
   name = aws_apigatewayv2_domain_name.api-domain.id
   type = "CNAME"
   value = aws_apigatewayv2_domain_name.api-domain.domain_name_configuration[0].target_domain_name
-  #value = trim(aws_apigatewayv2_stage.default.invoke_url, "https://")
   proxied = false
   ttl = 1
 }
