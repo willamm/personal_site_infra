@@ -210,13 +210,6 @@ resource "cloudflare_page_rule" "https" {
   }
 }
 
-resource "cloudflare_record" "restrict-email-spf" {
-  zone_id = data.cloudflare_zones.domain.zones[0].id
-  name = var.site_domain
-  type = "TXT"
-  value = "v=spf1 -all"
-  ttl = 1
-}
 
 resource "cloudflare_record" "dmarc" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
