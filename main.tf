@@ -136,7 +136,7 @@ resource "aws_cloudfront_distribution" "s3_dist" {
   is_ipv6_enabled = true
   default_root_object = "index.html"
 
-  aliases = [ "*.${var.site_domain}", "${var.site_domain}" ]
+  aliases = [ "www.${var.site_domain}", "${var.site_domain}" ]
 
   default_cache_behavior {
     allowed_methods = [ "HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH" ]
@@ -359,7 +359,7 @@ resource "aws_apigatewayv2_api" "http_lambda" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = [ "https://${var.site_domain}" ]
+    allow_origins = [ "https://${var.site_domain}", "https://www.${var.site_domain}" ]
     allow_methods = ["POST"]
     allow_headers = [ "content-type" ]
     max_age = 300
@@ -501,4 +501,16 @@ resource "aws_apigatewayv2_api_mapping" "api-mapping" {
   api_id = aws_apigatewayv2_api.http_lambda.id
   domain_name = aws_apigatewayv2_domain_name.api-domain.id
   stage = aws_apigatewayv2_stage.default.id
+  api_mapping_key = "v1"
+}
+
+# Create Cloudflare DNS record to map the API's custom domain name to the API's regional domain name
+resource "cloudflare_record" "api" {
+  zone_id = data.cloudflare_zones.domain.zones[0].id
+  name = aws_apigatewayv2_domain_name.api-domain.id
+  type = "CNAME"
+  value = aws_apigatewayv2_domain_name.api-domain.domain_name_configuration[0].target_domain_name
+  #value = trim(aws_apigatewayv2_stage.default.invoke_url, "https://")
+  proxied = false
+  ttl = 1
 }
