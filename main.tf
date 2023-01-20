@@ -54,7 +54,7 @@ resource "aws_s3_bucket" "static_site" {
 resource "aws_s3_bucket_website_configuration" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   index_document {
-    suffix = "index.html"
+    suffix = local.s3_index_document
   }
   error_document {
     key = "error.html"
@@ -70,6 +70,26 @@ resource "aws_s3_bucket_acl" "static_site" {
 resource "aws_s3_bucket_policy" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   policy = data.aws_iam_policy_document.allow_access_only_from_cloudfront.json
+}
+
+
+data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
+  statement {
+    sid = "AllowCloudFrontServicePrincipal"
+    effect = "Allow"
+    principals {
+      type = "Service"
+      identifiers = [ "cloudfront.amazonaws.com" ]    
+    }
+    actions = [ "s3:GetObject" ]
+    resources = [ "${aws_s3_bucket.static_site.arn}/*", "${aws_s3_bucket.static_site.arn}" ]
+    condition {
+      test = "StringEquals"
+      variable = "AWS:SourceArn"
+      values = [ "${aws_cloudfront_distribution.s3_dist.arn}" ]
+      
+    }
+  }
 }
 
 
@@ -101,6 +121,7 @@ data "cloudflare_ip_ranges" "cloudflare" {}
 
 locals {
   s3_origin_id = "test"
+  s3_index_document = "index.html"
 }
 
 resource "aws_cloudfront_origin_access_control" "default" {
@@ -120,7 +141,7 @@ resource "aws_cloudfront_distribution" "s3_dist" {
 
   enabled = true
   is_ipv6_enabled = true
-  default_root_object = "index.html"
+  default_root_object = local.s3_index_document
 
   aliases = [ "www.${var.site_domain}", "${var.site_domain}" ]
 
