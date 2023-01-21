@@ -51,3 +51,12 @@ variable "apigw_log_retention" {
   type = number
   default = 7
 }
+
+variable "custom_header" {
+  description = "Custom header value for CloudFront" 
+  type = object({
+    name = string
+    value = string
+  })
+  sensitive = true
+}

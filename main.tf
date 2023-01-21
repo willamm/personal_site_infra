@@ -53,8 +53,9 @@ resource "aws_s3_bucket" "static_site" {
 
 resource "aws_s3_object" "index" {
   bucket = aws_s3_bucket.static_site.id
-  key = "index"
-  source = "website/${local.s3_index_document}" 
+  key = "${local.s3_index_document}"
+  source = "website/${local.s3_index_document}"
+  content_type = "text/html"
 }
 
 resource "aws_s3_bucket_website_configuration" "static_site" {
@@ -81,19 +82,18 @@ resource "aws_s3_bucket_policy" "static_site" {
 
 data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
   statement {
-    sid = "AllowCloudFrontServicePrincipal"
+    sid = "Allow get requests originating from CloudFront with referer header"
     effect = "Allow"
     principals {
-      type = "Service"
-      identifiers = [ "cloudfront.amazonaws.com" ]    
+      type = "*"
+      identifiers = [ "*" ] 
     }
     actions = [ "s3:GetObject" ]
     resources = [ "${aws_s3_bucket.static_site.arn}/*", "${aws_s3_bucket.static_site.arn}" ]
     condition {
-      test = "StringEquals"
-      variable = "AWS:SourceArn"
-      values = [ "${aws_cloudfront_distribution.s3_dist.arn}" ]
-      
+      test = "StringLike"
+      variable = "aws:Referer"
+      values = [ "${var.custom_header.value}" ]
     }
   }
 }
@@ -140,17 +140,22 @@ resource "aws_cloudfront_origin_access_control" "default" {
 
 resource "aws_cloudfront_distribution" "s3_dist" {
   origin {
-    domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
-    #domain_name = aws_s3_bucket_website_configuration.static_site.website_endpoint
-    origin_access_control_id = aws_cloudfront_origin_access_control.default.id
+    #domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
+    domain_name = aws_s3_bucket_website_configuration.static_site.website_endpoint
+    #origin_access_control_id = aws_cloudfront_origin_access_control.default.id
     origin_id = local.s3_origin_id
 
-    #custom_origin_config {
-      #http_port = "80"
-      #https_port = "443"
-      #origin_protocol_policy = "http-only"
-      #origin_ssl_protocols = ["TLSv1", "TLSv1.1", "TLSv1.2"]
-    #}
+  custom_origin_config {
+      http_port = "80"
+      https_port = "443"
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols = ["TLSv1", "TLSv1.1", "TLSv1.2"]
+    }
+  
+  custom_header {
+    name = "${var.custom_header.name}"  
+    value = "${var.custom_header.value}"
+  }
   }
 
   enabled = true
