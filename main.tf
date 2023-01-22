@@ -162,7 +162,7 @@ resource "aws_cloudfront_distribution" "s3_dist" {
   is_ipv6_enabled = true
   default_root_object = local.s3_index_document
 
-  aliases = [ "www.${var.site_domain}", "${var.site_domain}" ]
+  aliases = [ "www.${var.site_domain}", "${var.site_domain}", "*.${var.site_domain}" ]
 
   default_cache_behavior {
     allowed_methods = [ "HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH" ]

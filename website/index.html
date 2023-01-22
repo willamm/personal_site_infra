@@ -7,9 +7,13 @@
 <body>
     <div id="header">
         <h1>Coming soon!</h1>
-        <p id="count"></p>
+        <p id="count-id"></p>
     </div>
     <script type="text/javascript">
+        // Check localStorage or session
+        if (!localStorage.getItem("count")) {
+            localStorage.setItem("count", JSON.stringify(0))
+        }
         const apiUrl = "https://api.williamm.me/v1/count"
         const options = {
             method: "POST"
@@ -17,8 +21,9 @@
         fetch(apiUrl, options)
             .then(response => response.json())
             .then(data => {
-                let count = document.getElementById('count');
-                count.innerHTML = data;
+                let count = document.getElementById('count-id');
+                localStorage.setItem("count", JSON.stringify(data))
+                count.innerHTML = localStorage.getItem("count");
                 console.log(data);
             })
     </script>
