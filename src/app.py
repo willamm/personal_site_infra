@@ -13,9 +13,11 @@ dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(table_name)
 
 def lambda_handler(event, context):
+    logger.info(event)
+    body = json.loads(event['body'])
     response = table.update_item(
         Key={
-            'id': 'site'
+            'id': body['site']
         },
         UpdateExpression='ADD ' + 'visits' + ':incr',
         ExpressionAttributeValues={
