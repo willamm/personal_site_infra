@@ -19,7 +19,9 @@
             method: "POST"
         }
         fetch(apiUrl, options)
-            .then(response => response.json())
+            .then(response => {
+                return response.json()
+            })
             .then(data => {
                 let count = document.getElementById('count-id');
                 localStorage.setItem("count", JSON.stringify(data))
