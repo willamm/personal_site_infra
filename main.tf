@@ -51,20 +51,13 @@ resource "aws_s3_bucket" "static_site" {
   force_destroy = true
 }
 
-#resource "aws_s3_object" "index" {
-  #bucket = aws_s3_bucket.static_site.id
-  #key = "${local.s3_index_document}"
-  #source = "website/${local.s3_index_document}"
-  #content_type = "text/html"
-#}
-
 resource "aws_s3_bucket_website_configuration" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   index_document {
     suffix = local.s3_index_document
   }
   error_document {
-    key = "error.html"
+    key = "404.html"
   }
 }
 
@@ -79,6 +72,44 @@ resource "aws_s3_bucket_policy" "static_site" {
   policy = data.aws_iam_policy_document.allow_access_only_from_cloudfront.json
 }
 
+# Role policy for deploying to AWS
+#data "aws_iam_policy_document" "github_repo_role_policy" {
+  #statement {
+    #sid = "Grant temporary role to a GitHub Action"
+    #effect = "Allow"
+    #principals {
+      #type = "Federated"
+      #identifiers = ["arn:aws:iam::123456123456:oidc-provider/token.actions.githubusercontent.com"]
+
+    #}
+    #actions = "sts:AssumeRoleWithWebIdentity"
+    ## TODO: Make everything into a variable
+    #condition {
+      #test = "StringLike"
+      #variable = "token.actions.githubusercontent.com:sub"
+      #values = ["repo:willamm/my-personal-site"]
+    #}
+    #condition {
+      #test = "StringEquals"
+      #variable = "token.actions.githubusercontent.com:aud"
+      #values = ["sts.amazonaws.com"]
+    #}
+  #}
+#}
+
+module "github_oidc" {
+  source = "unfunco/oidc-github/aws"
+  version = "1.1.1"
+  github_repositories = [
+    "willamm/my-personal-site:ref:refs/heads/main",
+  ]
+  attach_admin_policy = true
+}
+
+output "github_iam_role" {
+  description = "IAM role for GitHub Actions"
+  value = module.github_oidc.iam_role_arn
+}
 
 data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
   statement {
@@ -164,6 +195,7 @@ resource "aws_cloudfront_distribution" "s3_dist" {
 
   aliases = [ "www.${var.site_domain}", "${var.site_domain}", "*.${var.site_domain}" ]
 
+# TODO: Change allowed methods to be more restrictive
   default_cache_behavior {
     allowed_methods = [ "HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH" ]
     cached_methods = [ "GET", "HEAD" ]
@@ -378,7 +410,7 @@ resource "aws_apigatewayv2_api" "http_lambda" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = [ "https://${var.site_domain}", "https://www.${var.site_domain}" ]
+    allow_origins = [ "https://${var.site_domain}", "https://www.${var.site_domain}", "https://${aws_cloudfront_distribution.s3_dist.domain_name}" ]
     allow_methods = ["POST"]
     allow_headers = [ "content-type" ]
     max_age = 300
