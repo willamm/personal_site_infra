@@ -232,9 +232,8 @@ resource "cloudflare_record" "site_cname" {
   name = var.site_domain
   value = aws_cloudfront_distribution.s3_dist.domain_name 
   type = "CNAME"
-
   ttl = 1
-  proxied = false
+  proxied = true
 }
 
 resource "cloudflare_record" "www" {
@@ -243,7 +242,7 @@ resource "cloudflare_record" "www" {
   value = var.site_domain
   type = "CNAME"
   ttl = 1
-  proxied = false
+  proxied = true
 }
 
 
@@ -505,7 +504,7 @@ resource "cloudflare_record" "site" {
   allow_overwrite = true
   name = each.value.name
   value = each.value.value
-  ttl = 60
+  ttl = 1
   type = each.value.type
   zone_id = data.cloudflare_zones.domain.zones[0].id
 
@@ -541,6 +540,6 @@ resource "cloudflare_record" "api" {
   name = aws_apigatewayv2_domain_name.api-domain.id
   type = "CNAME"
   value = aws_apigatewayv2_domain_name.api-domain.domain_name_configuration[0].target_domain_name
-  proxied = false
+  proxied = true
   ttl = 1
 }
