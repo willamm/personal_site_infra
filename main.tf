@@ -72,43 +72,27 @@ resource "aws_s3_bucket_policy" "static_site" {
   policy = data.aws_iam_policy_document.allow_access_only_from_cloudfront.json
 }
 
-# Role policy for deploying to AWS
-#data "aws_iam_policy_document" "github_repo_role_policy" {
-  #statement {
-    #sid = "Grant temporary role to a GitHub Action"
-    #effect = "Allow"
-    #principals {
-      #type = "Federated"
-      #identifiers = ["arn:aws:iam::123456123456:oidc-provider/token.actions.githubusercontent.com"]
-
-    #}
-    #actions = "sts:AssumeRoleWithWebIdentity"
-    ## TODO: Make everything into a variable
-    #condition {
-      #test = "StringLike"
-      #variable = "token.actions.githubusercontent.com:sub"
-      #values = ["repo:willamm/my-personal-site"]
-    #}
-    #condition {
-      #test = "StringEquals"
-      #variable = "token.actions.githubusercontent.com:aud"
-      #values = ["sts.amazonaws.com"]
-    #}
-  #}
-#}
-
 module "github_oidc" {
   source = "unfunco/oidc-github/aws"
   version = "1.1.1"
   github_repositories = [
     "willamm/my-personal-site:ref:refs/heads/main",
   ]
-  attach_admin_policy = true
+  iam_role_inline_policies = {
+    "uploadToS3" : data.aws_iam_policy_document.s3.json
+  }
 }
 
 output "github_iam_role" {
   description = "IAM role for GitHub Actions"
   value = module.github_oidc.iam_role_arn
+}
+
+data "aws_iam_policy_document" "s3" {
+  statement {
+    actions = ["s3:*"]
+    resources = [ "arn:aws:s3:::${var.site_domain}", "arn:aws:s3:::${var.site_domain}/*" ]
+  }
 }
 
 data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
