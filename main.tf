@@ -83,10 +83,6 @@ module "github_oidc" {
   }
 }
 
-output "github_iam_role" {
-  description = "IAM role for GitHub Actions"
-  value = module.github_oidc.iam_role_arn
-}
 
 data "aws_iam_policy_document" "s3" {
   statement {

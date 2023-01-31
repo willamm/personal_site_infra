@@ -28,4 +28,8 @@ output "cloudfront_domain_validation" {
   description = "Set of domain validation outputs"
   value = aws_acm_certificate.cert.domain_validation_options
 }
-# add domain output later
+
+output "github_iam_role" {
+  description = "IAM role for GitHub Actions"
+  value = module.github_oidc.iam_role_arn
+}
