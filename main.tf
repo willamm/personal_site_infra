@@ -300,7 +300,7 @@ resource "aws_s3_object" "this" {
 //Define lambda function
 resource "aws_lambda_function" "apigw_lambda_ddb" {
   function_name = "${var.lambda_name}-${random_string.random.id}"
-  description = "serverlessland pattern"
+  description = "Lambda function for updating DynamoDB database"
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = aws_s3_object.this.key
