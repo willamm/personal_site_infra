@@ -478,7 +478,7 @@ resource "cloudflare_record" "site" {
       value = dvo.resource_record_value
       type = dvo.resource_record_type
     }
-    if length(regexall("\\*\\..+", dvo.domain_name)) > 0
+    if length(regexall("\\*\\..+", dvo.domain_name)) > 0 #ignores root domain
   }
 
   allow_overwrite = true
