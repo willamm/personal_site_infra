@@ -76,7 +76,7 @@ module "github_oidc" {
   source = "unfunco/oidc-github/aws"
   version = "1.1.1"
   github_repositories = [
-    "willamm/my-personal-site:*",
+    "willamm/my-personal-site",
   ]
   iam_role_inline_policies = {
     "uploadToS3" : data.aws_iam_policy_document.s3.json
