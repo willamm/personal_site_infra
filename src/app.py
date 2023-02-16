@@ -9,7 +9,7 @@ table_name = os.environ['DDB_TABLE']
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-dynamodb = boto3.resource('dynamodb')
+dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
 table = dynamodb.Table(table_name)
 
 # Updates the site visit count by 1 and returns the new value.
