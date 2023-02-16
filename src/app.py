@@ -30,17 +30,6 @@ def lambda_handler(event, context):
     logger.info(event)
     body = json.loads(event['body'])
     count = update_db(body)
-    #response = table.update_item(
-        #Key={
-            #'id': body['site']
-        #},
-        #UpdateExpression='ADD ' + 'visits' + ':incr',
-        #ExpressionAttributeValues={
-            #':incr': 1
-        #},
-        #ReturnValues="UPDATED_NEW"
-    #)
-    #count = response['Attributes']['visits']
     # TODO: update HTTP headers
     return {
         'statusCode': 200,
