@@ -1,24 +1,25 @@
-
 import boto3
 import os
 import json
 import logging
 
-table_name = os.environ['DDB_TABLE']
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
-table = dynamodb.Table(table_name)
+def get_table_resource():
+    dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
+    table_name = os.environ['DDB_TABLE']
+    return dynamodb.Table(table_name)
 
 # Updates the site visit count by 1 and returns the new value.
 def update_db(body):
+    table = get_table_resource()
     response = table.update_item(
         Key={
             'id': body['site']
         },
-        UpdateExpression='ADD ' + 'visits' + ':incr',
+        UpdateExpression="ADD visits :incr",
         ExpressionAttributeValues={
             ':incr': 1
         },
