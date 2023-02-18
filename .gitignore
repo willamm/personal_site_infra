@@ -11,5 +11,5 @@ override.tf.json
 secret.tfvars
 **/.idea/
 **/venv/*
-**/__pycache/*
+**/__pycache__/*
 **/.pytest_cache
