@@ -10,3 +10,6 @@ override.tf.json
 *.zip
 secret.tfvars
 **/.idea/
+**/venv/*
+**/__pycache/*
+**/.pytest_cache
