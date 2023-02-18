@@ -1,31 +1,31 @@
 terraform {
   backend "s3" {
-    bucket = "tfstate-williamm"
-    key = "tf/terraform.tfstate"
+    bucket         = "tfstate-williamm"
+    key            = "tf/terraform.tfstate"
     dynamodb_table = "app-state"
-    region = "us-east-1"
-    profile = "sam-user"
+    region         = "us-east-1"
+    profile        = "sam-user"
   }
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 4.16"
     }
     cloudflare = {
-      source = "cloudflare/cloudflare"
+      source  = "cloudflare/cloudflare"
       version = "3.32.0"
     }
     random = {
-      source = "hashicorp/random"
+      source  = "hashicorp/random"
       version = "3.1.0"
     }
     archive = {
-      source = "hashicorp/archive"
+      source  = "hashicorp/archive"
       version = "2.2.0"
     }
     tls = {
-      source = "hashicorp/tls"
+      source  = "hashicorp/tls"
       version = "4.0.4"
     }
   }
@@ -42,12 +42,12 @@ provider "cloudflare" {
 }
 
 resource "random_string" "random" {
-  length = 4
+  length  = 4
   special = false
 }
 
 resource "aws_s3_bucket" "static_site" {
-  bucket = var.site_domain
+  bucket        = var.site_domain
   force_destroy = true
 }
 
@@ -73,7 +73,7 @@ resource "aws_s3_bucket_policy" "static_site" {
 }
 
 module "github_oidc" {
-  source = "unfunco/oidc-github/aws"
+  source  = "unfunco/oidc-github/aws"
   version = "1.1.1"
   github_repositories = [
     "willamm/my-personal-site",
@@ -86,25 +86,25 @@ module "github_oidc" {
 
 data "aws_iam_policy_document" "s3" {
   statement {
-    actions = ["s3:*"]
-    resources = [ "arn:aws:s3:::${var.site_domain}", "arn:aws:s3:::${var.site_domain}/*" ]
+    actions   = ["s3:*"]
+    resources = ["arn:aws:s3:::${var.site_domain}", "arn:aws:s3:::${var.site_domain}/*"]
   }
 }
 
 data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
   statement {
-    sid = "Allow get requests originating from CloudFront with referer header"
+    sid    = "Allow get requests originating from CloudFront with referer header"
     effect = "Allow"
     principals {
-      type = "*"
-      identifiers = [ "*" ] 
+      type        = "*"
+      identifiers = ["*"]
     }
-    actions = [ "s3:GetObject" ]
-    resources = [ "${aws_s3_bucket.static_site.arn}/*", "${aws_s3_bucket.static_site.arn}" ]
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.static_site.arn}/*", "${aws_s3_bucket.static_site.arn}"]
     condition {
-      test = "StringLike"
+      test     = "StringLike"
       variable = "aws:Referer"
-      values = [ "${var.custom_header.value}" ]
+      values   = ["${var.custom_header.value}"]
     }
   }
 }
@@ -137,16 +137,16 @@ data "cloudflare_zones" "domain" {
 data "cloudflare_ip_ranges" "cloudflare" {}
 
 locals {
-  s3_origin_id = "test"
+  s3_origin_id      = "test"
   s3_index_document = "index.html"
 }
 
 resource "aws_cloudfront_origin_access_control" "default" {
-  name = "default"
-  description = "CloudFront-S3 access control"
+  name                              = "default"
+  description                       = "CloudFront-S3 access control"
   origin_access_control_origin_type = "s3"
-  signing_behavior = "always"
-  signing_protocol = "sigv4"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
 }
 
 resource "aws_cloudfront_distribution" "s3_dist" {
@@ -156,29 +156,29 @@ resource "aws_cloudfront_distribution" "s3_dist" {
     #origin_access_control_id = aws_cloudfront_origin_access_control.default.id
     origin_id = local.s3_origin_id
 
-  custom_origin_config {
-      http_port = "80"
-      https_port = "443"
+    custom_origin_config {
+      http_port              = "80"
+      https_port             = "443"
       origin_protocol_policy = "http-only"
-      origin_ssl_protocols = ["TLSv1", "TLSv1.1", "TLSv1.2"]
+      origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
     }
-  
-  custom_header {
-    name = "${var.custom_header.name}"  
-    value = "${var.custom_header.value}"
-  }
+
+    custom_header {
+      name  = var.custom_header.name
+      value = var.custom_header.value
+    }
   }
 
-  enabled = true
-  is_ipv6_enabled = true
+  enabled             = true
+  is_ipv6_enabled     = true
   default_root_object = local.s3_index_document
 
-  aliases = [ "www.${var.site_domain}", "${var.site_domain}", "*.${var.site_domain}" ]
+  aliases = ["www.${var.site_domain}", "${var.site_domain}", "*.${var.site_domain}"]
 
-# TODO: Change allowed methods to be more restrictive
+  # TODO: Change allowed methods to be more restrictive
   default_cache_behavior {
-    allowed_methods = [ "HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH" ]
-    cached_methods = [ "GET", "HEAD" ]
+    allowed_methods  = ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"]
+    cached_methods   = ["GET", "HEAD"]
     target_origin_id = local.s3_origin_id
 
     forwarded_values {
@@ -190,45 +190,45 @@ resource "aws_cloudfront_distribution" "s3_dist" {
     }
 
     viewer_protocol_policy = "allow-all"
-    min_ttl = 0
-    default_ttl = 0
-    max_ttl = 0
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
   }
-  
+
   restrictions {
     geo_restriction {
       restriction_type = "whitelist"
-      locations = [ "US", "CA", "GB", "DE" ]
+      locations        = ["US", "CA", "GB", "DE"]
     }
   }
   viewer_certificate {
     acm_certificate_arn = aws_acm_certificate_validation.valid.certificate_arn
-    ssl_support_method = "sni-only"
+    ssl_support_method  = "sni-only"
   }
 }
 
 resource "cloudflare_record" "site_cname" {
-  zone_id = data.cloudflare_zones.domain.zones[0].id 
-  name = var.site_domain
-  value = aws_cloudfront_distribution.s3_dist.domain_name 
-  type = "CNAME"
-  ttl = 1
+  zone_id = data.cloudflare_zones.domain.zones[0].id
+  name    = var.site_domain
+  value   = aws_cloudfront_distribution.s3_dist.domain_name
+  type    = "CNAME"
+  ttl     = 1
   proxied = true
 }
 
 resource "cloudflare_record" "www" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
-  name = "www"
-  value = var.site_domain
-  type = "CNAME"
-  ttl = 1
+  name    = "www"
+  value   = var.site_domain
+  type    = "CNAME"
+  ttl     = 1
   proxied = true
 }
 
 
 resource "cloudflare_page_rule" "https" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
-  target = "*.${var.site_domain}/*"
+  target  = "*.${var.site_domain}/*"
   actions {
     always_use_https = true
   }
@@ -237,18 +237,18 @@ resource "cloudflare_page_rule" "https" {
 
 resource "cloudflare_record" "dmarc" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
-  name = "_dmarc"
-  type = "TXT"
-  value = "v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;"
-  ttl = 1
+  name    = "_dmarc"
+  type    = "TXT"
+  value   = "v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;"
+  ttl     = 1
 }
 
 resource "cloudflare_record" "domain_key" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
-  name= "*._domainkey"
-  type= "TXT"
-  value = "v=DKIM1; p="
-  ttl = 1
+  name    = "*._domainkey"
+  type    = "TXT"
+  value   = "v=DKIM1; p="
+  ttl     = 1
 }
 
 #############################################
@@ -257,11 +257,11 @@ resource "cloudflare_record" "domain_key" {
 
 # Database setup
 resource "aws_dynamodb_table" "count_table" {
-  name = var.dynamodb_table
-  billing_mode = "PROVISIONED"
-  read_capacity = 20
+  name           = var.dynamodb_table
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 20
   write_capacity = 20
-  hash_key = "id"
+  hash_key       = "id"
 
   attribute {
     name = "id"
@@ -300,7 +300,7 @@ resource "aws_s3_object" "this" {
 //Define lambda function
 resource "aws_lambda_function" "apigw_lambda_ddb" {
   function_name = "${var.lambda_name}-${random_string.random.id}"
-  description = "Lambda function for updating DynamoDB database"
+  description   = "Lambda function for updating DynamoDB database"
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = aws_s3_object.this.key
@@ -311,14 +311,14 @@ resource "aws_lambda_function" "apigw_lambda_ddb" {
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
   role = aws_iam_role.lambda_exec.arn
-  
+
   environment {
     variables = {
       DDB_TABLE = var.dynamodb_table
     }
   }
   depends_on = [aws_cloudwatch_log_group.lambda_logs]
-  
+
 }
 
 resource "aws_cloudwatch_log_group" "lambda_logs" {
@@ -349,29 +349,29 @@ resource "aws_iam_policy" "lambda_exec_role" {
 
   policy = jsonencode({
 
-    Version: "2012-10-17",
-    Statement: [
-        {
-            Effect: "Allow",
-            Action: [
-                "dynamodb:GetItem",
-                "dynamodb:PutItem",
-                "dynamodb:UpdateItem",
-                "dynamodb:DescribeTable"
-            ],
-            Resource: "arn:aws:dynamodb:*:*:table/*"
-        },
-        {
-            Effect: "Allow",
-            Action: [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents"
-            ],
-            Resource: "*"
-        }
+    Version : "2012-10-17",
+    Statement : [
+      {
+        Effect : "Allow",
+        Action : [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DescribeTable"
+        ],
+        Resource : "arn:aws:dynamodb:*:*:table/*"
+      },
+      {
+        Effect : "Allow",
+        Action : [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Resource : "*"
+      }
     ]
-})
+  })
 
 }
 
@@ -389,10 +389,10 @@ resource "aws_apigatewayv2_api" "http_lambda" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = [ "https://${var.site_domain}", "https://www.${var.site_domain}", "https://${aws_cloudfront_distribution.s3_dist.domain_name}" ]
+    allow_origins = ["https://${var.site_domain}", "https://www.${var.site_domain}", "https://${aws_cloudfront_distribution.s3_dist.domain_name}"]
     allow_methods = ["POST"]
-    allow_headers = [ "content-type" ]
-    max_age = 300
+    allow_headers = ["content-type"]
+    max_age       = 300
   }
 
   disable_execute_api_endpoint = true
@@ -426,7 +426,7 @@ resource "aws_apigatewayv2_stage" "default" {
 
 resource "aws_apigatewayv2_integration" "apigw_lambda" {
   api_id = aws_apigatewayv2_api.http_lambda.id
-  
+
   integration_uri    = aws_lambda_function.apigw_lambda_ddb.invoke_arn
   integration_type   = "AWS_PROXY"
   integration_method = "POST"
@@ -458,9 +458,9 @@ resource "aws_lambda_permission" "api_gw" {
 # Custom API domain set up #
 ############################
 resource "aws_acm_certificate" "cert" {
-  domain_name = "${var.site_domain}"
-  validation_method = "DNS"
-  subject_alternative_names = [ "*.${var.site_domain}" ]
+  domain_name               = var.site_domain
+  validation_method         = "DNS"
+  subject_alternative_names = ["*.${var.site_domain}"]
 
   tags = {
     Environment = "dev"
@@ -474,52 +474,52 @@ resource "aws_acm_certificate" "cert" {
 resource "cloudflare_record" "site" {
   for_each = {
     for dvo in aws_acm_certificate.cert.domain_validation_options : dvo.domain_name => {
-      name = dvo.resource_record_name
+      name  = dvo.resource_record_name
       value = dvo.resource_record_value
-      type = dvo.resource_record_type
+      type  = dvo.resource_record_type
     }
     if length(regexall("\\*\\..+", dvo.domain_name)) > 0 #ignores root domain
   }
 
   allow_overwrite = true
-  name = each.value.name
-  value = each.value.value
-  ttl = 1
-  type = each.value.type
-  zone_id = data.cloudflare_zones.domain.zones[0].id
+  name            = each.value.name
+  value           = each.value.value
+  ttl             = 1
+  type            = each.value.type
+  zone_id         = data.cloudflare_zones.domain.zones[0].id
 
   proxied = false
 }
 
 resource "aws_acm_certificate_validation" "valid" {
-  certificate_arn = aws_acm_certificate.cert.arn
-  validation_record_fqdns = [ for record in cloudflare_record.site : record.hostname ]
-  
+  certificate_arn         = aws_acm_certificate.cert.arn
+  validation_record_fqdns = [for record in cloudflare_record.site : record.hostname]
+
 }
 # Create API Gateway custom domain
 resource "aws_apigatewayv2_domain_name" "api-domain" {
   domain_name = "api.${var.site_domain}"
   domain_name_configuration {
     certificate_arn = aws_acm_certificate_validation.valid.certificate_arn
-    endpoint_type = "REGIONAL"
+    endpoint_type   = "REGIONAL"
     security_policy = "TLS_1_2"
   }
 }
 
 # Associate domain name with the default API stage
 resource "aws_apigatewayv2_api_mapping" "api-mapping" {
-  api_id = aws_apigatewayv2_api.http_lambda.id
-  domain_name = aws_apigatewayv2_domain_name.api-domain.id
-  stage = aws_apigatewayv2_stage.default.id
+  api_id          = aws_apigatewayv2_api.http_lambda.id
+  domain_name     = aws_apigatewayv2_domain_name.api-domain.id
+  stage           = aws_apigatewayv2_stage.default.id
   api_mapping_key = "v1"
 }
 
 # Create Cloudflare DNS record to map the API's custom domain name to the API's regional domain name
 resource "cloudflare_record" "api" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
-  name = aws_apigatewayv2_domain_name.api-domain.id
-  type = "CNAME"
-  value = aws_apigatewayv2_domain_name.api-domain.domain_name_configuration[0].target_domain_name
+  name    = aws_apigatewayv2_domain_name.api-domain.id
+  type    = "CNAME"
+  value   = aws_apigatewayv2_domain_name.api-domain.domain_name_configuration[0].target_domain_name
   proxied = true
-  ttl = 1
+  ttl     = 1
 }

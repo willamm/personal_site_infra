@@ -16,46 +16,46 @@ variable "site_domain" {
 
 variable "s3_bucket_prefix" {
   description = "S3 bucket prefix"
-  type = string
-  default = "apigw-lambda-ddb"
+  type        = string
+  default     = "apigw-lambda-ddb"
 }
 
 variable "dynamodb_table" {
   description = "Name of the DynamoDB table"
-  type = string
-  default = "count-table"
+  type        = string
+  default     = "count-table"
 }
 
 variable "lambda_name" {
   description = "Name of the Lambda function"
-  type = string
-  default = "lambda-function"
-  
+  type        = string
+  default     = "lambda-function"
+
 }
 
 variable "apigw_name" {
   description = "name of the lambda function"
-  type = string
-  default = "apigw-http-lambda"
-  
+  type        = string
+  default     = "apigw-http-lambda"
+
 }
 
 variable "lambda_log_retention" {
   description = "lambda log retention in days"
-  type = number
-  default = 7
+  type        = number
+  default     = 7
 }
 
 variable "apigw_log_retention" {
   description = "api gwy log retention in days"
-  type = number
-  default = 7
+  type        = number
+  default     = 7
 }
 
 variable "custom_header" {
-  description = "Custom header value for CloudFront" 
+  description = "Custom header value for CloudFront"
   type = object({
-    name = string
+    name  = string
     value = string
   })
   sensitive = true
