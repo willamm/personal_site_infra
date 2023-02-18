@@ -53,7 +53,6 @@ def test_lambda(data_table_with_data):
     import app
     key = json.loads(lambda_event['body'])
     count = app.update_db(key)
-
     assert count == 3
     
 
