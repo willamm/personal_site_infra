@@ -48,28 +48,61 @@ resource "random_string" "random" {
 
 resource "aws_s3_bucket" "static_site" {
   bucket        = var.site_domain
-  force_destroy = true
+  #force_destroy = true
 }
 
 resource "aws_s3_bucket_website_configuration" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   index_document {
-    suffix = local.s3_index_document
+    suffix = "index.html"
   }
   error_document {
-    key = "404.html"
+    key = "error.html"
   }
+}
+
+resource "aws_s3_object" "index_document" {
+  key = "index.html"
+  bucket = aws_s3_bucket.static_site.id
+  source = "bucket_objects/index.html"
+  content_type = "text/html"
+  etag = filemd5("bucket_objects/index.html")
+}
+
+resource "aws_s3_object" "error_document" {
+  key = "error.html"
+  bucket = aws_s3_bucket.static_site.id
+  source = "bucket_objects/error.html"
+  content_type = "text/html"
+  etag = filemd5("bucket_objects/error.html")
 }
 
 resource "aws_s3_bucket_acl" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   acl    = "private"
-
+  depends_on = [ aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership ]
 }
 
 resource "aws_s3_bucket_policy" "static_site" {
   bucket = aws_s3_bucket.static_site.id
   policy = data.aws_iam_policy_document.allow_access_only_from_cloudfront.json
+  depends_on = [ aws_s3_bucket_public_access_block.static_site ]
+}
+
+resource "aws_s3_bucket_public_access_block" "static_site" {
+  bucket = aws_s3_bucket.static_site.id
+  block_public_acls = true
+  block_public_policy = true
+  ignore_public_acls = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" {
+  bucket = aws_s3_bucket.static_site.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+  depends_on = [ aws_s3_bucket_public_access_block.static_site ]
 }
 
 module "github_oidc" {
@@ -93,18 +126,23 @@ data "aws_iam_policy_document" "s3" {
 
 data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
   statement {
-    sid    = "Allow get requests originating from CloudFront with referer header"
+    sid    = "Allow GetObject requests originating from CloudFront"
     effect = "Allow"
     principals {
-      type        = "*"
-      identifiers = ["*"]
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
     }
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.static_site.arn}/*", "${aws_s3_bucket.static_site.arn}"]
+    actions   = [
+      "s3:GetObject",
+      ]
+    resources = [
+      "${aws_s3_bucket.static_site.arn}/*",
+       "${aws_s3_bucket.static_site.arn}",
+      ]
     condition {
-      test     = "StringLike"
-      variable = "aws:Referer"
-      values   = ["${var.custom_header.value}"]
+      test = "ForAnyValue:StringEquals"
+      variable = "aws:SourceArn"
+      values = [aws_cloudfront_distribution.s3_dist.arn]
     }
   }
 }
@@ -113,11 +151,6 @@ data "aws_iam_policy_document" "allow_access_only_from_cloudfront" {
 resource "aws_s3_bucket" "www" {
   bucket = "www.${var.site_domain}"
 
-}
-
-resource "aws_s3_bucket_acl" "www" {
-  bucket = aws_s3_bucket.www.id
-  acl    = "private"
 }
 
 resource "aws_s3_bucket_website_configuration" "www" {
@@ -136,10 +169,6 @@ data "cloudflare_zones" "domain" {
 
 data "cloudflare_ip_ranges" "cloudflare" {}
 
-locals {
-  s3_origin_id      = "test"
-  s3_index_document = "index.html"
-}
 
 resource "aws_cloudfront_origin_access_control" "default" {
   name                              = "default"
@@ -151,35 +180,22 @@ resource "aws_cloudfront_origin_access_control" "default" {
 
 resource "aws_cloudfront_distribution" "s3_dist" {
   origin {
-    #domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
-    domain_name = aws_s3_bucket_website_configuration.static_site.website_endpoint
-    #origin_access_control_id = aws_cloudfront_origin_access_control.default.id
-    origin_id = local.s3_origin_id
-
-    custom_origin_config {
-      http_port              = "80"
-      https_port             = "443"
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
-    }
-
-    custom_header {
-      name  = var.custom_header.name
-      value = var.custom_header.value
-    }
+    
+    domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.default.id
+    origin_id = "myS3Origin"
   }
 
   enabled             = true
   is_ipv6_enabled     = true
-  default_root_object = local.s3_index_document
+  default_root_object = "index.html"
 
   aliases = ["www.${var.site_domain}", "${var.site_domain}", "*.${var.site_domain}"]
 
-  # TODO: Change allowed methods to be more restrictive
   default_cache_behavior {
     allowed_methods  = ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"]
     cached_methods   = ["GET", "HEAD"]
-    target_origin_id = local.s3_origin_id
+    target_origin_id = "myS3Origin"
 
     forwarded_values {
       query_string = false
@@ -189,7 +205,7 @@ resource "aws_cloudfront_distribution" "s3_dist" {
       }
     }
 
-    viewer_protocol_policy = "allow-all"
+    viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
     default_ttl            = 0
     max_ttl                = 0
@@ -276,10 +292,10 @@ resource "aws_s3_bucket" "lambda_bucket" {
   force_destroy = true
 }
 
-resource "aws_s3_bucket_acl" "private_bucket" {
-  bucket = aws_s3_bucket.lambda_bucket.id
-  acl    = "private"
-}
+#resource "aws_s3_bucket_acl" "private_bucket" {
+#  bucket = aws_s3_bucket.lambda_bucket.id
+#  acl    = "private"
+#}
 
 data "archive_file" "lambda_zip" {
   type = "zip"
