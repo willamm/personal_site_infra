@@ -3,7 +3,7 @@ data "template_file" "static_website_deployment_document" {
 
   vars = {
     cf_arn = aws_cloudfront_distribution.s3_dist.arn
-    s3_arn = aws_s3_bucket.static_site.arn
+    s3_arn = module.website_s3_bucket.arn
   }
 }
 

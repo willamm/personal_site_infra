@@ -46,63 +46,14 @@ resource "random_string" "random" {
   special = false
 }
 
-resource "aws_s3_bucket" "static_site" {
-  bucket        = var.site_domain
-  #force_destroy = true
-}
-
-resource "aws_s3_bucket_website_configuration" "static_site" {
-  bucket = aws_s3_bucket.static_site.id
-  index_document {
-    suffix = "index.html"
+module "website_s3_bucket" {
+  source = "./modules/aws-s3-static-site-bucket"
+  bucket_name = var.site_domain
+  tags = {
+    Terraform = "true"
+    Environment = "dev"
   }
-  error_document {
-    key = "error.html"
-  }
-}
-
-resource "aws_s3_object" "index_document" {
-  key = "index.html"
-  bucket = aws_s3_bucket.static_site.id
-  source = "bucket_objects/index.html"
-  content_type = "text/html"
-  etag = filemd5("bucket_objects/index.html")
-}
-
-resource "aws_s3_object" "error_document" {
-  key = "error.html"
-  bucket = aws_s3_bucket.static_site.id
-  source = "bucket_objects/error.html"
-  content_type = "text/html"
-  etag = filemd5("bucket_objects/error.html")
-}
-
-resource "aws_s3_bucket_acl" "static_site" {
-  bucket = aws_s3_bucket.static_site.id
-  acl    = "private"
-  depends_on = [ aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership ]
-}
-
-resource "aws_s3_bucket_policy" "static_site" {
-  bucket = aws_s3_bucket.static_site.id
-  policy = data.aws_iam_policy_document.allow_access_only_from_cloudfront.json
-  depends_on = [ aws_s3_bucket_public_access_block.static_site ]
-}
-
-resource "aws_s3_bucket_public_access_block" "static_site" {
-  bucket = aws_s3_bucket.static_site.id
-  block_public_acls = true
-  block_public_policy = true
-  ignore_public_acls = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" {
-  bucket = aws_s3_bucket.static_site.id
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-  depends_on = [ aws_s3_bucket_public_access_block.static_site ]
+  cloudfront_dist_arn = aws_cloudfront_distribution.s3_dist.arn
 }
 
 module "github_oidc" {
@@ -139,7 +90,8 @@ resource "aws_cloudfront_origin_access_control" "default" {
 resource "aws_cloudfront_distribution" "s3_dist" {
   origin {
     
-    domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
+    #domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
+    domain_name = module.website_s3_bucket.domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.default.id
     origin_id = "myS3Origin"
   }

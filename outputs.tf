@@ -1,13 +1,13 @@
 
 output "website_bucket_name" {
   description = "Website bucket name of the S3 instance"
-  value       = aws_s3_bucket.static_site.id
+  value       = module.website_s3_bucket.domain_name
 }
 
-output "bucket_endpoint" {
-  description = "Bucket endpoint"
-  value       = aws_s3_bucket_website_configuration.static_site.website_endpoint
-}
+#output "bucket_endpoint" {
+  #description = "Bucket endpoint"
+  #value       = aws_s3_bucket_website_configuration.static_site.website_endpoint
+#}
 
 output "apigw_url" {
   description = "URL for API Gateway stage"
